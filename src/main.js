@@ -161,11 +161,53 @@ function addToolbarButton() {
   }
 }
 
+function addGitlabToolbarButton() {
+  for (const toolbar of select.all(
+    'form:not(.ghg-has-giphy-field) .md-header-toolbar'
+  )) {
+    const form = toolbar.closest('form')
+    observeEl(toolbar, () => {
+      let toolbarGroup = select('.gl-display-flex', toolbar)
+
+      if (toolbarGroup) {
+        // Append the Giphy button to the toolbar
+        // cloneNode is necessary, without it, it will only be appended to the last toolbarGroup
+        const clonedNode = GiphyToolbarItem.cloneNode(true)
+
+        // Hack to allow space to work in the input field.
+        // It was affected by this PR, which also broke space in the "Saved replies" menu item
+        // https://github.com/github/markdown-toolbar-element/pull/72
+        clonedNode.addEventListener(
+          'keydown',
+          (event) => {
+            if (event.code === 'Space') {
+              event.stopPropagation()
+            }
+          },
+          {capture: true}
+        )
+
+        toolbarGroup.append(clonedNode)
+        select('.ghg-giphy-results', clonedNode)
+
+        form.classList.add('ghg-has-giphy-field')
+
+        // Clears the gif search input field and results.
+        // We have to do this because when navigating, github will refuse to
+        // load the giphy URLs as it violates their Content Security Policy.
+        resetGiphyModals()
+      }
+    })
+
+  }
+}
+
 /**
  * Watches for comments that might be dynamically added, then adds the button the the WYSIWYG when they are.
  */
 function observeDiscussion() {
   observe('markdown-toolbar', () => addToolbarButton())
+  observe('.md-header-toolbar', addGitlabToolbarButton)
 }
 
 /**
@@ -316,7 +358,7 @@ function selectGif(event) {
   const form = event.target.closest('.ghg-has-giphy-field')
   const trigger = select('.ghg-trigger', form)
   const gifUrl = event.target.dataset.fullSizeUrl
-  const textArea = select('.js-comment-field', form)
+  const textArea = select(['.js-comment-field', 'textarea'], form)
 
   // Close the modal
   trigger.removeAttribute('open')
